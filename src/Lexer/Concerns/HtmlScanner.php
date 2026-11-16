@@ -6,6 +6,7 @@ namespace Forte\Lexer\Concerns;
 
 use Forte\Lexer\State;
 use Forte\Lexer\Tokens\TokenType;
+use Forte\Support\HtmlWhitespace;
 
 trait HtmlScanner
 {
@@ -124,7 +125,7 @@ trait HtmlScanner
         // Malformed closing tag with leading whitespace before a Blade echo-like
         // sequence (e.g. "</\r{{"). Close the current tag and rewind so the
         // skipped whitespace is preserved as data.
-        if ($this->isClosingTag
+        if (! $this->htmlOnly && $this->isClosingTag
             && $start < $this->pos
             && $this->pos < $this->len
             && $this->source[$this->pos] === '{') {
@@ -141,7 +142,7 @@ trait HtmlScanner
             $ch = $this->source[$this->pos];
 
             // Check for Blade echo in the tag name (e.g., <{{ $element }}>)
-            if ($ch === '{' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+            if ($ch === '{' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
                 // Try to scan Blade echo
                 $savedPos = $this->pos;
                 if ($this->peekAhead(1) === '{') {
@@ -191,9 +192,11 @@ trait HtmlScanner
                 break;
             }
 
+            // HTML-only names keep literal template punctuation until an HTML
+            // delimiter. Retain the existing malformed-tag recovery boundaries.
             // Tag name characters (special characters included to support Blade components, directives, etc.)
             // Includes [] and $ for slot syntax: <x-slot[name]>, <x-slot:items[]>, <x-slot[$variable]>
-            if (ctype_alnum((string) $ch) || $ch === '-' || $ch === ':' || $ch === '_' || $ch === '@' || $ch === '.' || $ch === '[' || $ch === ']' || $ch === '$') {
+            if (($this->htmlOnly && ! str_contains(HtmlWhitespace::CHARACTERS."/<>\0", $ch)) || ctype_alnum((string) $ch) || $ch === '-' || $ch === ':' || $ch === '_' || $ch === '@' || $ch === '.' || $ch === '[' || $ch === ']' || $ch === '$') {
                 $this->pos++;
             } else {
                 break;
@@ -219,7 +222,7 @@ trait HtmlScanner
                 || $next === '['
                 || $next === ']'
                 || $next === '$';
-            $canStartBladeConstruct = ! $this->verbatim
+            $canStartBladeConstruct = ! $this->htmlOnly && ! $this->verbatim
                 && ! $this->phpBlock
                 && ! $this->phpTag
                 && $next === '{'
@@ -384,7 +387,7 @@ trait HtmlScanner
         $ch = $this->source[$this->pos];
 
         // Check for Blade directive as attribute: @if($condition)
-        if ($ch === '@' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+        if ($ch === '@' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
             // Look ahead to check if this is a known Blade directive
             $tempPos = $this->pos + 1; // Skip @
             $nameStart = $tempPos;
@@ -454,7 +457,7 @@ trait HtmlScanner
         }
 
         // Check for JSX shorthand attribute: {enabled} or {...props}
-        if ($ch === '{' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+        if ($ch === '{' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
             if ($this->tryScanJsxShorthandAttribute()) {
                 // Successfully scanned JSX shorthand
                 return;
@@ -462,7 +465,7 @@ trait HtmlScanner
         }
 
         // Check for Blade echo as an attribute or standalone: {{ $attributes }}
-        if ($ch === '{' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+        if ($ch === '{' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
             $savedPos = $this->pos;
 
             // Check for Blade patterns: {{--, {{, {!!, {{{

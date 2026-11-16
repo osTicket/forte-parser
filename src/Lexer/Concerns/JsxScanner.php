@@ -12,6 +12,10 @@ trait JsxScanner
 {
     protected function tryScanJsxShorthandAttribute(): bool
     {
+        if ($this->htmlOnly) {
+            return false;
+        }
+
         if ($this->pos >= $this->len || $this->source[$this->pos] !== '{') {
             return false;
         }
@@ -77,6 +81,10 @@ trait JsxScanner
      */
     protected function scanJsxAttributeValue(): bool
     {
+        if ($this->htmlOnly) {
+            return false;
+        }
+
         $start = $this->pos;
         $originalPos = $this->pos;
 
@@ -131,6 +139,10 @@ trait JsxScanner
      */
     protected function tryScanTsxGenericType(): bool
     {
+        if ($this->htmlOnly) {
+            return false;
+        }
+
         if ($this->pos >= $this->len || $this->source[$this->pos] !== '<') {
             return false;
         }

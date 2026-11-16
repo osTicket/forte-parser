@@ -11,6 +11,10 @@ trait PhpScanner
 {
     protected function tryScanPhpTag(): bool
     {
+        if ($this->htmlOnly) {
+            return false;
+        }
+
         if ($this->pos + 1 >= $this->len || $this->source[$this->pos] !== '<' || $this->source[$this->pos + 1] !== '?') {
             return false;
         }
@@ -138,6 +142,10 @@ trait PhpScanner
 
     protected function phpTagStartLength(int $pos): int
     {
+        if ($this->htmlOnly) {
+            return 0;
+        }
+
         // Need at least 2 bytes for <?
         if ($pos + 2 > $this->len || $this->source[$pos] !== '<' || $this->source[$pos + 1] !== '?') {
             return 0;

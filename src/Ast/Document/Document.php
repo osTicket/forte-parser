@@ -169,7 +169,7 @@ class Document implements Countable, IteratorAggregate, Stringable
         $componentManager = $options->getComponentManager();
         $registry = $options->hasExtensions() ? $options->getExtensionRegistry() : null;
 
-        $lexer = new Lexer($template, $directives);
+        $lexer = new Lexer($template, $directives, htmlOnly: $options->isHtmlOnly());
 
         $registry?->configureLexer($lexer);
 

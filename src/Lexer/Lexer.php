@@ -97,8 +97,17 @@ class Lexer
 
     private ?AttributeLexerContext $attrExtContext = null;
 
-    public function __construct(string $source, ?Directives $directives = null)
-    {
+    /**
+     * Create a lexer for the original source bytes.
+     *
+     * HTML-only parsing uses the existing markup scanners while leaving
+     * template-looking content literal. Blade remains the default mode.
+     */
+    public function __construct(
+        string $source,
+        ?Directives $directives = null,
+        private readonly bool $htmlOnly = false,
+    ) {
         $this->source = $source;
         $this->len = strlen($source);
         $this->state = State::Data;
