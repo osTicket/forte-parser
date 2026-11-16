@@ -26,6 +26,7 @@ use Forte\Lexer\Tokens\TokenType;
 use Forte\Lexer\Tokens\TokenTypeRegistry;
 use Forte\Parser\Directives\Directives;
 use Forte\Support\ScanPrimitives;
+use InvalidArgumentException;
 
 class Lexer
 {
@@ -129,6 +130,10 @@ class Lexer
      */
     public function registerExtension(LexerExtension $extension, ?TokenTypeRegistry $registry = null): self
     {
+        if ($this->htmlOnly) {
+            throw new InvalidArgumentException('HTML-only parsing does not accept template extensions.');
+        }
+
         if ($this->extensions === null) {
             $this->extensions = new ExtensionStack;
         }
@@ -520,6 +525,10 @@ class Lexer
      */
     public function registerAttributeExtension(AttributeExtension $extension, ?TokenTypeRegistry $registry = null): self
     {
+        if ($this->htmlOnly) {
+            throw new InvalidArgumentException('HTML-only parsing does not accept template extensions.');
+        }
+
         $prefix = $extension->attributePrefix();
         if ($prefix === '') {
             return $this; // Skip no-prefix extensions

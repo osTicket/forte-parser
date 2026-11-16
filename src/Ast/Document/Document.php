@@ -165,6 +165,10 @@ class Document implements Countable, IteratorAggregate, Stringable
     {
         $options ??= ParserOptions::defaults();
 
+        if ($options->isHtmlOnly() && $options->hasExtensions()) {
+            throw new InvalidArgumentException('HTML-only parsing does not accept template extensions.');
+        }
+
         $directives = $options->getDirectives();
         $componentManager = $options->getComponentManager();
         $registry = $options->hasExtensions() ? $options->getExtensionRegistry() : null;

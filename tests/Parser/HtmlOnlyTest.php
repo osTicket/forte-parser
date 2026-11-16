@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 use Forte\Ast\Document\Document;
 use Forte\Ast\Elements\ElementNode;
+use Forte\Extensions\AbstractAttributeExtension;
+use Forte\Extensions\AbstractExtension;
+use Forte\Lexer\Extension\LexerContext;
+use Forte\Lexer\Lexer;
 use Forte\Lexer\Tokens\TokenType;
+use Forte\Lexer\Tokens\TokenTypeRegistry;
 use Forte\Parser\ParserOptions;
 use Forte\Rewriting\NodePath;
 use PHPUnit\Framework\Assert;
@@ -121,6 +126,51 @@ it('keeps configured registries intact when returning to Blade mode', function (
     $document = Document::parse('@unknown {{ $name }}<custom:alert />', $options);
     expect(array_column($document->getTokenRecords(), 'type'))->toContain(TokenType::Directive, TokenType::EchoStart)
         ->and($document->findComponentByName('custom:alert')?->isComponent())->toBeTrue();
+});
+
+it('rejects explicit extensions at the document and lexer boundaries', function (): void {
+    $extension = new class extends AbstractExtension
+    {
+        public function id(): string
+        {
+            return 'html-mode-probe';
+        }
+
+        public function triggerCharacters(): string
+        {
+            return '#';
+        }
+
+        protected function doTokenize(LexerContext $ctx): bool
+        {
+            throw new LogicException('HTML mode must reject this extension before tokenization.');
+        }
+
+        protected function registerTypes(TokenTypeRegistry $registry): void {}
+    };
+
+    expect(fn () => Document::parse('<p>x</p>', ParserOptions::make()->extension($extension)->htmlOnly()))
+        ->toThrow(InvalidArgumentException::class, 'HTML-only parsing does not accept template extensions.');
+    expect(fn () => (new Lexer('<p>x</p>', htmlOnly: true))->registerExtension($extension))
+        ->toThrow(InvalidArgumentException::class, 'HTML-only parsing does not accept template extensions.');
+});
+
+it('rejects direct attribute extensions in HTML-only mode', function (): void {
+    $extension = new class extends AbstractAttributeExtension
+    {
+        public function id(): string
+        {
+            return 'html-attribute-probe';
+        }
+
+        public function attributePrefix(): string
+        {
+            return '#';
+        }
+    };
+
+    expect(fn () => (new Lexer('<p>x</p>', htmlOnly: true))->registerAttributeExtension($extension))
+        ->toThrow(InvalidArgumentException::class, 'HTML-only parsing does not accept template extensions.');
 });
 
 it('preserves literal tag identities without hiding images', function (string $name): void {
