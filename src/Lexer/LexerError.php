@@ -80,6 +80,17 @@ class LexerError extends Exception
     }
 
     /**
+     * Report a self-closing marker on an HTML raw-text opening or closing tag.
+     *
+     * @param  State  $state  Scanner state which consumed the marker.
+     * @param  int  $offset  Original closing delimiter offset.
+     */
+    public static function unexpectedSelfClosingTag(State $state, int $offset): self
+    {
+        return new self($state, ErrorReason::UnexpectedSelfClosingTag, $offset);
+    }
+
+    /**
      * Create a notice for PHP close tag ?> found inside a line comment
      */
     public static function phpCloseTagInComment(State $state, int $offset): self

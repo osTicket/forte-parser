@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Forte\Lexer\Concerns;
 
+use Forte\Lexer\LexerError;
 use Forte\Lexer\State;
 use Forte\Lexer\Tokens\TokenType;
+use Forte\Support\HtmlWhitespace;
 
 trait RawtextScanner
 {
@@ -114,7 +116,9 @@ trait RawtextScanner
                         $afterTagPos = $this->pos + 2 + $tagNameLen;
                         if ($afterTagPos < $len) {
                             $afterTagChar = $this->source[$afterTagPos];
-                            if ($afterTagChar === '>' || ctype_space((string) $afterTagChar)) {
+                            if ($this->htmlOnly
+                                ? str_contains(HtmlWhitespace::CHARACTERS.'/>', $afterTagChar)
+                                : ($afterTagChar === '>' || ctype_space((string) $afterTagChar))) {
                                 // Emit text before the closing tag.
                                 if ($start < $this->pos) {
                                     $this->emitToken(TokenType::Text, $start, $this->pos);
@@ -149,6 +153,11 @@ trait RawtextScanner
                                     $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
                                     $this->pos++;
                                 } else {
+                                    // Preserve the existing incomplete-close evidence. HTML-only
+                                    // callers must not silently swallow a slash-ended raw-text close.
+                                    if ($this->htmlOnly && $peekPos < $len && $this->source[$peekPos] === '/') {
+                                        $this->logError(LexerError::unexpectedSelfClosingTag(State::RawText, $peekPos));
+                                    }
                                     // If we're here, we have a malformed closing tag (doesn't have its >).
                                     // We'll just emit a SyntheticClose without consuming whitespace.
                                     $this->emitToken(TokenType::SyntheticClose, $this->pos, $this->pos);
