@@ -9,6 +9,7 @@ use Forte\Extensions\ExtensionRegistry;
 use Forte\Extensions\ForteExtension;
 use Forte\Lexer\Tokens\TokenTypeRegistry;
 use Forte\Parser\Directives\Directives;
+use InvalidArgumentException;
 
 class ParserOptions
 {
@@ -16,6 +17,9 @@ class ParserOptions
 
     /** Null preserves the receiving mode when default options are merged. */
     private ?bool $htmlOnly = null;
+
+    /** Null leaves token emission unbounded and preserves merged limits. */
+    private ?int $maxTokens = null;
 
     private ?ComponentManager $componentManager = null;
 
@@ -48,6 +52,35 @@ class ParserOptions
     public function isHtmlOnly(): bool
     {
         return $this->htmlOnly ?? false;
+    }
+
+    /**
+     * Limit the number of tokens emitted during lexing.
+     *
+     * The limit applies independently of the parsing mode. Unconfigured
+     * options preserve an existing limit when merged into another instance.
+     *
+     * @param  int  $maxTokens  Maximum number of emitted token records.
+     *
+     * @throws InvalidArgumentException
+     */
+    public function tokenLimit(int $maxTokens): self
+    {
+        if ($maxTokens < 1) {
+            throw new InvalidArgumentException('The token limit must be a positive integer.');
+        }
+
+        $this->maxTokens = $maxTokens;
+
+        return $this;
+    }
+
+    /**
+     * Return the configured token limit, or null when no limit was supplied.
+     */
+    public function getTokenLimit(): ?int
+    {
+        return $this->maxTokens;
     }
 
     /**
@@ -262,6 +295,10 @@ class ParserOptions
 
     public function merge(self $other): self
     {
+        if ($other->maxTokens !== null) {
+            $this->maxTokens = $other->maxTokens;
+        }
+
         if ($other->htmlOnly !== null) {
             $this->htmlOnly = $other->htmlOnly;
         }
