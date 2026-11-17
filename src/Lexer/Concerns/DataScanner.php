@@ -218,7 +218,9 @@ trait DataScanner
                         $this->emitToken(TokenType::Text, $start, $this->pos);
                     }
 
-                    $this->tryScanDownlevelHiddenConditionalCommentEnd();
+                    if (! $this->tryScanDownlevelHiddenConditionalCommentEnd()) {
+                        $this->state = State::Comment;
+                    }
 
                     return;
                 }

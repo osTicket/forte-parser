@@ -7,6 +7,7 @@ namespace Forte\Lexer\Concerns;
 use Forte\Lexer\LexerError;
 use Forte\Lexer\State;
 use Forte\Lexer\Tokens\TokenType;
+use Forte\Support\HtmlWhitespace;
 
 trait CommentScanner
 {
@@ -138,6 +139,17 @@ trait CommentScanner
             return false;
         }
 
+        // Bracketed ordinary comments remain comments in HTML-only mode.
+        // Keep Blade's existing permissive conditional recognition unchanged.
+        if ($this->htmlOnly) {
+            $keyword = substr($this->source, $this->pos + 5, 2);
+            $boundary = $this->source[$this->pos + 7] ?? '';
+            if (strcasecmp($keyword, 'if') !== 0
+                || ($boundary !== '' && ! str_contains(HtmlWhitespace::CHARACTERS.'](', $boundary))) {
+                return false;
+            }
+        }
+
         $start = $this->pos;
         $this->pos += 5; // Skip <!--[
 
@@ -208,6 +220,15 @@ trait CommentScanner
 
         if (substr($this->source, $this->pos, 7) !== '<!--<![') {
             return false;
+        }
+
+        if ($this->htmlOnly) {
+            $keyword = substr($this->source, $this->pos + 7, 5);
+            $boundary = $this->source[$this->pos + 12] ?? '';
+            if (strcasecmp($keyword, 'endif') !== 0
+                || ($boundary !== '' && ! str_contains(HtmlWhitespace::CHARACTERS.']', $boundary))) {
+                return false;
+            }
         }
 
         $start = $this->pos;
