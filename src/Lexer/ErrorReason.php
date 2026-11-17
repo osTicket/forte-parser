@@ -16,6 +16,7 @@ enum ErrorReason: int
     case UnimplementedState = 7;
     case ConstructCollision = 8;
     case PhpCloseTagInComment = 9;
+    case UnexpectedSelfClosingTag = 10;
 
     public function label(): string
     {
@@ -30,6 +31,7 @@ enum ErrorReason: int
             self::UnimplementedState => 'UnimplementedState',
             self::ConstructCollision => 'ConstructCollision',
             self::PhpCloseTagInComment => 'PhpCloseTagInComment',
+            self::UnexpectedSelfClosingTag => 'UnexpectedSelfClosingTag',
         };
     }
 }

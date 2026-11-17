@@ -57,4 +57,30 @@ it('retains every incremental prefix of the corrected HTML boundaries', function
     '<!--<![build note]--><img src="active">',
     '<!--[if mso]><img src="active"><![endif]-->',
     '<!--[if !mso]><!--><img src="active"><!--<![endif]-->',
+    '<style type="text/css"/><img src="active">',
+    '<style>text</STYLE / ><img src="active">',
 ]);
+
+it('reports self-closing raw-text markup through existing HTML diagnostics', function (string $source): void {
+    $result = (new Lexer($source, htmlOnly: true))->tokenize();
+    $document = Document::parse($source, ParserOptions::make()->htmlOnly());
+
+    expect($result->errors)->not->toBeEmpty()
+        ->and($document->hasErrors())->toBeTrue()
+        ->and(Token::reconstructFromTokens($result->tokens, $source))->toBe($source);
+})->with([
+    '<style/><img src="one">',
+    '<textarea/><img src="one">',
+    '<script type="text/plain" /><img src="one">',
+    '<TITLE / ><img src="one">',
+    '<style>.x{}</style/><img src="one">',
+    '<style>.x{}</STYLE / ><img src="one">',
+    '<textarea>text</textarea/><img src="one">',
+]);
+
+it('leaves default Blade raw-text recognition unchanged', function (): void {
+    $result = (new Lexer('<textarea/><img src="one">'))->tokenize();
+
+    expect($result->errors)->toBeEmpty()
+        ->and(array_column($result->tokens, 'type'))->not->toContain(TokenType::SyntheticClose);
+});

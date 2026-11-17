@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Forte\Lexer\Concerns;
 
+use Forte\Lexer\LexerError;
 use Forte\Lexer\State;
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Support\HtmlWhitespace;
@@ -21,8 +22,21 @@ trait HtmlScanner
         'xmp' => true,
     ];
 
-    private function stateAfterTagClose(): State
+    /**
+     * Select the existing text state and report ambiguous HTML raw-text markers.
+     *
+     * @param  bool  $selfClosing  Whether the tag ended with a self-closing marker.
+     */
+    private function stateAfterTagClose(bool $selfClosing = false): State
     {
+        if ($selfClosing) {
+            if ($this->htmlOnly && isset(self::SPECIAL_TEXT_ELEMENTS[strtolower($this->currentTagName)])) {
+                $this->logError(LexerError::unexpectedSelfClosingTag($this->state, $this->pos - 1));
+            }
+
+            return State::Data;
+        }
+
         if ($this->isClosingTag) {
             return State::Data;
         }
@@ -107,7 +121,7 @@ trait HtmlScanner
                     if ($this->pos < $this->len && $this->source[$this->pos] === '>') {
                         $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
                         $this->pos++;
-                        $this->state = State::Data;  // Self-closing never enters rawtext
+                        $this->state = $this->stateAfterTagClose(selfClosing: true);
                     } else {
                         // Malformed, but continue
                         $this->state = State::BeforeAttrName;
@@ -308,7 +322,7 @@ trait HtmlScanner
                 $this->emitToken(TokenType::Slash, $slashStart, $this->pos);
                 $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
                 $this->pos++;
-                $this->state = State::Data;  // Self-closing never enters rawtext
+                $this->state = $this->stateAfterTagClose(selfClosing: true);
             } else {
                 $this->emitToken(TokenType::Slash, $slashStart, $wsStart);
 
@@ -539,7 +553,9 @@ trait HtmlScanner
                 $this->emitToken(TokenType::Slash, $slashStart, $this->pos);
                 $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
                 $this->pos++;
-                // Self-closing never enters rawtext
+                $this->state = $this->stateAfterTagClose(selfClosing: true);
+
+                return;
             } elseif ($this->pos >= $this->len) {
                 $this->emitToken(TokenType::Slash, $slashStart, $wsStart);
 
