@@ -20,7 +20,7 @@ trait RawtextScanner
             $byte = $this->source[$this->pos];
 
             // Check for Blade constructs
-            if ($byte === '{' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+            if ($byte === '{' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
                 $next1 = $this->pos + 1 < $len ? $this->source[$this->pos + 1] : null;
 
                 // Check for Blade patterns: {{--, {{, {!!, {{{
@@ -59,7 +59,7 @@ trait RawtextScanner
             }
 
             // Directive stuff.
-            if ($byte === '@' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+            if ($byte === '@' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
                 $prevChar = $this->pos > 0 ? $this->source[$this->pos - 1] : null;
                 $canStart = $this->pos === 0 || (! ctype_alnum((string) $prevChar) && $prevChar !== '@');
 

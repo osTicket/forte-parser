@@ -6,6 +6,7 @@ namespace Forte\Lexer\Concerns;
 
 use Forte\Lexer\State;
 use Forte\Lexer\Tokens\TokenType;
+use Forte\Support\HtmlWhitespace;
 
 trait AttributeScanner
 {
@@ -23,7 +24,7 @@ trait AttributeScanner
         // Check for special Blade attribute patterns at the start
         $tokenType = TokenType::AttributeName;
 
-        if ($this->pos < $this->len && $this->source[$this->pos] === ':') {
+        if (! $this->htmlOnly && $this->pos < $this->len && $this->source[$this->pos] === ':') {
             if ($this->pos + 1 < $this->len && $this->source[$this->pos + 1] === ':') {
                 // ::name - EscapedAttribute
                 $tokenType = TokenType::EscapedAttribute;
@@ -45,7 +46,7 @@ trait AttributeScanner
             $byte = $this->source[$this->pos];
 
             // Check for Blade echo in the attribute name (e.g., class-{{ $thing }})
-            if ($byte === '{' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+            if ($byte === '{' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
                 // Emit attribute name so far if we have any
                 if ($this->pos > $start) {
                     $this->emitToken($tokenType, $start, $this->pos);
@@ -95,7 +96,7 @@ trait AttributeScanner
             }
 
             // Check for PHP tag in the attribute name (e.g., data-<?php echo 'thing'; ? >more)
-            if ($byte === '<' && $this->pos + 1 < $this->len && $this->source[$this->pos + 1] === '?') {
+            if (! $this->htmlOnly && $byte === '<' && $this->pos + 1 < $this->len && $this->source[$this->pos + 1] === '?') {
                 // Emit attribute name so far if we have any
                 if ($this->pos > $start) {
                     $this->emitToken($tokenType, $start, $this->pos);
@@ -112,7 +113,7 @@ trait AttributeScanner
             }
 
             // Check for Blade directive in the attribute name (e.g., class-@if($x)thing)
-            if ($byte === '@' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+            if ($byte === '@' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
                 $tempPos = $this->pos + 1; // Skip @
                 $nameStart = $tempPos;
 
@@ -155,16 +156,18 @@ trait AttributeScanner
             }
 
             // Keep modifier call payloads opaque to tag-closing detection.
-            if ($byte === '(' && $start < $this->pos && $this->source[$start] === '@') {
+            if (! $this->htmlOnly && $byte === '(' && $start < $this->pos && $this->source[$start] === '@') {
                 $this->skipBalancedParens();
 
                 continue;
             }
 
+            // HTML-only names retain literal template punctuation. Keep the
+            // existing name loop and HTML whitespace definition.
             // Regular attribute name characters
             // Includes: alphanumeric, dash, colon, underscore, $, @, .
             // @ and . are needed for Vue/Alpine event handlers: @click.prevent.stop
-            if (ctype_alnum((string) $byte) || $byte === '-' || $byte === ':' || $byte === '_' || $byte === '$' || $byte === '@' || $byte === '.') {
+            if (($this->htmlOnly && ! str_contains(HtmlWhitespace::CHARACTERS."/=><\0", $byte)) || ctype_alnum((string) $byte) || $byte === '-' || $byte === ':' || $byte === '_' || $byte === '$' || $byte === '@' || $byte === '.') {
                 $this->pos++;
             } else {
                 break;
@@ -327,7 +330,7 @@ trait AttributeScanner
         $char = $this->source[$this->pos];
 
         // Prioritize Blade getEchoes over JSX-style attributes
-        if ($char === '{' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+        if ($char === '{' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
             // Check for Blade echo patterns: {{, {!!, {{{
             if ($this->peekAhead(1) === '{') {
                 // {{ or {{{
@@ -418,8 +421,8 @@ trait AttributeScanner
 
             // Find the next quote, {, or @ character
             $quotePos = strpos($this->source, (string) $quote, $this->pos);
-            $bracePos = strpos($this->source, '{', $this->pos);
-            $atPos = strpos($this->source, '@', $this->pos);
+            $bracePos = $this->htmlOnly ? false : strpos($this->source, '{', $this->pos);
+            $atPos = $this->htmlOnly ? false : strpos($this->source, '@', $this->pos);
 
             // Find minimum position (next interesting character)
             $nextPos = $this->len;
@@ -473,7 +476,7 @@ trait AttributeScanner
                 $this->state = State::BeforeAttrName;
 
                 return;
-            } elseif ($byte === '{' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+            } elseif ($byte === '{' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
                 // Potential echo delimiter
                 $savedPos = $this->pos;
 
@@ -516,7 +519,7 @@ trait AttributeScanner
 
                 // Not an echo, just a regular {
                 $this->pos = $savedPos + 1;
-            } elseif ($byte === '@' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+            } elseif ($byte === '@' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
                 // Potential directive
                 // Check if @ can start a directive
                 $canStart = $this->pos === $valueStart || ! ctype_alnum((string) $this->source[$this->pos - 1]);
@@ -564,12 +567,12 @@ trait AttributeScanner
             }
 
             // Check for the end of an unquoted value
-            if ($byte === ' ' || $byte === "\t" || $byte === "\n" || $byte === "\r" || $byte === '>') {
+            if (($this->htmlOnly && str_contains(HtmlWhitespace::CHARACTERS, $byte)) || $byte === ' ' || $byte === "\t" || $byte === "\n" || $byte === "\r" || $byte === '>') {
                 break;
             }
 
             // Check for PHP tag in unquoted value
-            if ($byte === '<' && $this->pos + 1 < $this->len && $this->source[$this->pos + 1] === '?') {
+            if (! $this->htmlOnly && $byte === '<' && $this->pos + 1 < $this->len && $this->source[$this->pos + 1] === '?') {
                 $savedPos = $this->pos;
 
                 // Emit attribute value content before PHP tag if any
@@ -591,7 +594,7 @@ trait AttributeScanner
             }
 
             // Check for Blade echo in unquoted value
-            if ($byte === '{' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+            if ($byte === '{' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
                 $savedPos = $this->pos;
 
                 // Check for Blade patterns: {{--, {{, {!!, {{{
@@ -638,7 +641,7 @@ trait AttributeScanner
             }
 
             // Check for Blade directive in unquoted value
-            if ($byte === '@' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+            if ($byte === '@' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
                 $savedPos = $this->pos;
 
                 // Check if @ can start a directive

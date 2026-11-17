@@ -47,6 +47,10 @@ trait ConstructDetector
      */
     protected function detectConstruct(int $flags): ?Construct
     {
+        if ($this->htmlOnly) {
+            return null;
+        }
+
         if (($flags & self::CONSTRUCT_TRIPLE_ECHO) !== 0
             && $this->peek() === '{'
             && $this->peekAhead(1) === '{'

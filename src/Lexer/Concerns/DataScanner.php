@@ -16,7 +16,7 @@ trait DataScanner
         $len = $this->len;
 
         if (! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
-            $stopChars = '{<@'.$this->extensionTriggers;
+            $stopChars = ($this->htmlOnly ? '<' : '{<@').$this->extensionTriggers;
             $skip = strcspn($this->source, $stopChars, $this->pos);
 
             if ($skip > 0) {
@@ -45,7 +45,7 @@ trait DataScanner
         while ($this->pos < $len) {
             $byte = $this->source[$this->pos];
 
-            if ($byte === '{' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
+            if ($byte === '{' && ! $this->htmlOnly && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
                 // Check if the previous character is @ (escaped: @{{ or @{!!)
                 $prevChar = $this->pos > 0 ? $this->source[$this->pos - 1] : null;
                 if ($prevChar === '@') {
@@ -89,7 +89,7 @@ trait DataScanner
                     // Just a regular {, keep scanning
                     $this->pos++;
                 }
-            } elseif ($byte === '@') {
+            } elseif ($byte === '@' && ! $this->htmlOnly) {
                 // In verbatim mode, only check for @endverbatim
                 if ($this->verbatim) {
                     if ($this->isEndverbatimAt($this->pos)) {
@@ -281,7 +281,7 @@ trait DataScanner
                     $this->emitToken(TokenType::Text, $start, $beforeDecl);
                     $start = $beforeDecl;
                 }
-                if ($this->tryScanDecl()) {
+                if (! $this->htmlOnly && $this->tryScanDecl()) {
                     return;
                 }
 
@@ -291,7 +291,7 @@ trait DataScanner
                     $this->emitToken(TokenType::Text, $start, $beforePI);
                     $start = $beforePI;
                 }
-                if ($this->tryScanProcessingInstruction()) {
+                if (! $this->htmlOnly && $this->tryScanProcessingInstruction()) {
                     return;
                 }
 
@@ -320,7 +320,7 @@ trait DataScanner
                 }
 
                 $nextChar = $this->pos + 1 < $len ? $this->source[$this->pos + 1] : null;
-                $isValidTagStart = $nextChar !== null && (ctype_alpha($nextChar) || $nextChar === '/' || $nextChar === '_' || $nextChar === '>' || $nextChar === '{' || $nextChar === '@');
+                $isValidTagStart = $nextChar !== null && (ctype_alpha($nextChar) || $nextChar === '/' || $nextChar === '_' || $nextChar === '>' || (! $this->htmlOnly && ($nextChar === '{' || $nextChar === '@')));
 
                 if ($isValidTagStart) {
                     if ($start < $this->pos) {
