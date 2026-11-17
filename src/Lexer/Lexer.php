@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Forte\Lexer;
 
+use Forte\Exceptions\TokenLimitExceeded;
 use Forte\Extensions\AttributeExtension;
 use Forte\Internal\TokenRecord;
 use Forte\Lexer\Concerns\AttributeScanner;
@@ -57,6 +58,9 @@ class Lexer
     /** @var array<int, TokenRecord> */
     private array $tokens = [];
 
+    /** Keep a failed lexer from returning its accumulated token prefix. */
+    private ?TokenLimitExceeded $tokenLimitFailure = null;
+
     /** @var array<int, LexerError> */
     private array $errors = [];
 
@@ -103,12 +107,26 @@ class Lexer
      *
      * HTML-only parsing uses the existing markup scanners while leaving
      * template-looking content literal. Blade remains the default mode.
+     * A supplied token limit bounds emission in either mode before records
+     * are allocated; omitted limits retain existing unbounded behavior.
+     *
+     * @param  string  $source  Original source bytes.
+     * @param  Directives|null  $directives  Directive registry for Blade parsing.
+     * @param  bool  $htmlOnly  Whether template recognition is disabled.
+     * @param  int|null  $maxTokens  Optional maximum number of emitted records.
+     *
+     * @throws InvalidArgumentException
      */
     public function __construct(
         string $source,
         ?Directives $directives = null,
         private readonly bool $htmlOnly = false,
+        private readonly ?int $maxTokens = null,
     ) {
+        if ($maxTokens !== null && $maxTokens < 1) {
+            throw new InvalidArgumentException('The token limit must be a positive integer.');
+        }
+
         $this->source = $source;
         $this->len = strlen($source);
         $this->state = State::Data;
@@ -182,9 +200,21 @@ class Lexer
 
     private function scan(): void
     {
+        if ($this->tokenLimitFailure !== null) {
+            throw $this->tokenLimitFailure;
+        }
+
         while ($this->pos < $this->len) {
             if ($this->extensions !== null && $this->state === State::Data) {
-                if ($this->extensions->tryTokenize($this->getExtensionContext())) {
+                $handled = $this->extensions->tryTokenize($this->getExtensionContext());
+
+                // Stop when control returns even if an extension caught the
+                // emission failure, before dispatching or scanning more input.
+                if ($this->tokenLimitFailure !== null) {
+                    throw $this->tokenLimitFailure;
+                }
+
+                if ($handled) {
                     continue;
                 }
             }
@@ -239,6 +269,12 @@ class Lexer
                     break 2;
             }
 
+        }
+
+        // An extension may catch an emission failure while consuming input.
+        // The lexer must still reject the incomplete stream at the boundary.
+        if ($this->tokenLimitFailure !== null) {
+            throw $this->tokenLimitFailure;
         }
 
         if ($this->state === State::TagName
@@ -393,10 +429,26 @@ class Lexer
     }
 
     /**
-     * @param  int  $type  TokenType constant or extension type ID
+     * Append one token without exceeding the configured emission budget.
+     *
+     * @param  int  $type  TokenType constant or extension type ID.
+     * @param  int  $start  Starting byte offset in the original source.
+     * @param  int  $end  Exclusive ending byte offset.
+     *
+     * @throws TokenLimitExceeded
      */
     public function emitToken(int $type, int $start, int $end): void
     {
+        if ($this->tokenLimitFailure !== null) {
+            throw $this->tokenLimitFailure;
+        }
+
+        if ($this->maxTokens !== null && count($this->tokens) >= $this->maxTokens) {
+            $this->tokenLimitFailure = new TokenLimitExceeded($this->maxTokens, $start);
+
+            throw $this->tokenLimitFailure;
+        }
+
         $this->tokens[] = new TokenRecord($type, $start, $end);
     }
 
