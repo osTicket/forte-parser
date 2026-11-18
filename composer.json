@@ -1,16 +1,28 @@
 {
-    "name": "fortephp/forte",
-    "description": "A fault-tolerant Blade template parser and AST toolkit.",
+    "name": "osticket/forte-parser",
+    "description": "The osTicket-maintained Forte Blade and HTML parser with an AST toolkit and bounded HTML-only parsing.",
     "type": "library",
     "license": "MIT",
     "keywords": [
         "laravel",
-        "blade parser"
+        "blade parser",
+        "html parser",
+        "ast"
     ],
+    "homepage": "https://github.com/osTicket/forte-parser",
+    "support": {
+        "issues": "https://github.com/osTicket/forte-parser/issues",
+        "source": "https://github.com/osTicket/forte-parser"
+    },
     "authors": [
         {
             "name": "John Koster",
             "email": "john@stillat.com"
+        },
+        {
+            "name": "osTicket",
+            "homepage": "https://osticket.com",
+            "role": "Maintainer"
         }
     ],
     "require": {
@@ -25,6 +37,9 @@
         "laravel/pint": "^1.22",
         "phpstan/phpstan": "^2.1",
         "rector/rector": "^2.1"
+    },
+    "conflict": {
+        "fortephp/forte": "*"
     },
     "autoload": {
         "psr-4": {
