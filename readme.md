@@ -1,10 +1,55 @@
-# Forte
+# Forte Parser
 
-> the ... strongest part of the blade
->
-> https://www.merriam-webster.com/dictionary/forte
+Forte Parser is osTicket's maintained fork of [Forte](https://github.com/fortephp/forte), originally created by John Koster. It provides a Laravel Blade parser and AST toolkit, with opt-in HTML-only parsing and configurable token and depth limits.
 
-Forte is a Laravel Blade parser and AST manipulation library.
+The Composer package is `osticket/forte-parser`. The PHP namespace remains `Forte\`, and Blade parsing remains the default. Existing parser APIs and Laravel integration are preserved. The fork's HTML-only extensions reuse the same lexer, parser and document model.
+
+## Installation
+
+Install from the maintained repository using a release that declares the new package name:
+
+```sh
+composer config repositories.forte-parser '{"type":"vcs","url":"https://github.com/osTicket/forte-parser","only":["osticket/forte-parser"]}'
+composer require osticket/forte-parser
+```
+
+The first release under the new name is planned as `1.2.2`. Existing `v1.2.0` and `v1.2.1` tags retain their original `fortephp/forte` identity. The renamed package cannot be installed alongside `fortephp/forte`, because both expose the same PHP classes. When migrating, replace the old requirement and update any package-name-based configuration together; namespace imports do not change.
+
+### Parser-only use in Laravel
+
+The package continues to advertise `Forte\ServiceProvider` for applications using its Laravel integration. Applications using only the parser should disable discovery by the new Composer name, preserving any other exclusions:
+
+```json
+{
+    "extra": {
+        "laravel": {
+            "dont-discover": [
+                "osticket/forte-parser"
+            ]
+        }
+    }
+}
+```
+
+Rebuild Laravel's package manifest after changing this setting. Parser-only consumers can use `Forte\Ast\Document\Document` directly without registering the provider.
+
+## HTML-only parsing
+
+Use HTML-only mode when template-looking text must remain literal. It does not execute Blade or PHP, and it does not replace HTML sanitization or application authorization. Set resource limits appropriate to the input:
+
+```php
+use Forte\Ast\Document\Document;
+use Forte\Parser\ParserOptions;
+
+$options = ParserOptions::make()
+    ->htmlOnly()
+    ->tokenLimit(10000)
+    ->depthLimits(elements: 128);
+
+$document = Document::parse('<p>{{ literal }}</p><img src="cid:example">', $options);
+```
+
+The maintained extensions cover literal template syntax, conditional comments, HTML raw-text boundaries and bounded tokenization. Blade mode remains available through the existing options and entry points. Applications remain responsible for validating the parsed document and deciding which content and image sources they accept.
 
 ## Quick Start
 
@@ -116,8 +161,12 @@ Builder::directive('if', '($show)');
 Builder::echo('$name');
 ```
 
-To learn more, visit [https://fortephp.com](https://fortephp.com).
+## Maintenance and upstream
+
+Report issues with this maintained fork at [osTicket/forte-parser](https://github.com/osTicket/forte-parser/issues). Releases and source are maintained in that repository. General fixes can still be contributed to [upstream Forte](https://github.com/fortephp/forte); this fork releases its extensions independently.
+
+[Upstream documentation](https://fortephp.com) describes the original Blade parser and AST APIs. Fork-specific behavior and installation are documented here.
 
 ## License
 
-Forte is free software, released under the MIT license.
+Forte Parser retains Forte's [MIT license](license.md) and original copyright notice. Upstream authorship and contribution history are preserved.

@@ -27,54 +27,53 @@ class NodeCollection extends Collection
     /**
      * Filter the collection to nodes that are instances of the given class.
      *
-     * @param  class-string  $className
+     * @template TNode of Node
+     *
+     * @param  class-string<TNode>  $className
+     * @return static<TKey, TNode>
      */
     public function ofType(string $className): static
     {
-        return $this->filter(fn ($n) => $n instanceof $className);
+        return $this->whereInstanceOf($className);
     }
 
     /**
      * Get a collection of directive nodes.
      *
-     * @return static<int, DirectiveNode>
+     * @return static<TKey, DirectiveNode>
      */
     public function directives(): static
     {
-        /** @var static<int, DirectiveNode> */
         return $this->ofType(DirectiveNode::class);
     }
 
     /**
      * Get a collection of block directive nodes.
      *
-     * @return static<int, DirectiveBlockNode>
+     * @return static<TKey, DirectiveBlockNode>
      */
     public function blockDirectives(): static
     {
-        /** @var static<int, DirectiveBlockNode> */
         return $this->ofType(DirectiveBlockNode::class);
     }
 
     /**
      * Get a collection of echo nodes.
      *
-     * @return static<int, EchoNode>
+     * @return static<TKey, EchoNode>
      */
     public function echoes(): static
     {
-        /** @var static<int, EchoNode> */
         return $this->ofType(EchoNode::class);
     }
 
     /**
      * Get a collection of element nodes.
      *
-     * @return static<int, ElementNode>
+     * @return static<TKey, ElementNode>
      */
     public function elements(): static
     {
-        /** @var static<int, ElementNode> */
         return $this->ofType(ElementNode::class);
     }
 
@@ -89,33 +88,30 @@ class NodeCollection extends Collection
     /**
      * Get a collection of PHP block nodes.
      *
-     * @return static<int, PhpBlockNode>
+     * @return static<TKey, PhpBlockNode>
      */
     public function phpBlocks(): static
     {
-        /** @var static<int, PhpBlockNode> */
         return $this->ofType(PhpBlockNode::class);
     }
 
     /**
      * Get a collection of text nodes.
      *
-     * @return static<int, TextNode>
+     * @return static<TKey, TextNode>
      */
     public function text(): static
     {
-        /** @var static<int, TextNode> */
         return $this->ofType(TextNode::class);
     }
 
     /**
      * Get a collection of component nodes.
      *
-     * @return static<int, ComponentNode>
+     * @return static<TKey, ComponentNode>
      */
     public function components(): static
     {
-        /** @var static<int, ComponentNode> */
         return $this->ofType(ComponentNode::class);
     }
 
